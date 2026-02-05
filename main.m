@@ -2,8 +2,8 @@ clc; clear; close all;
 
 %% STEP 1: CARICAMENTO IMMAGINE E PRE PROCESSING
 
-% Definizione del file
-image = 'Dataset_test_C1\C1_S1_I10.tiff'; 
+% Definizione manuale del file
+image = 'Dataset_test_C1\C1_S2_I7.tiff'; 
 
 % Lettura immagine
 try
@@ -28,7 +28,7 @@ img_denoised = medfilt2(img_enhanced, [7 7]);
 figure('Name', 'Pre processing');
 subplot(1,3,1); imshow(img_red); title('Canale Rosso Filtrato');
 subplot(1,3,2); imshow(img_smooth); title('Riflessi rimossi');
-subplot(1,3,3); imshow(img_denoised); title('Enhancement');
+subplot(1,3,3); imshow(img_denoised); title('Immagine pre processata');
 
 
 %% STEP 2: STIMA DEL CENTRO (ROI)
@@ -55,114 +55,11 @@ subplot(1, 1, 1); imshow(img_red); hold on;
 rectangle('Position', [c_min, r_min, box_width, box_height], 'EdgeColor', 'g', 'LineWidth', 2); 
 title('ROI selezionata');
 
-%% STEP 3: SEGMENTAZIONE PUPILLA
-img_pupil_in = img_roi_denoised; 
+%% STEP 3: Chiamata alle funzioni di segmentazione
+%Segmentazione Hough
+[c_pupil, r_pupil, c_iris, r_iris] = segmentazione_hough(img_roi_denoised);   
 
-% Rimozione riflessi residui 
-img_no_ref = ordfilt2(img_pupil_in, 1, true(7));
-
-% Sottrazione dello sfondo
-se_bg = strel('disk', 45); 
-img_bg = imclose(img_no_ref, se_bg);
-img_diff = imsubtract(img_bg, img_no_ref);
-
-% Oscuriamo tutto ciò che non è al centro della ROI.
-[h_roi, w_roi] = size(img_diff);
-[xx, yy] = meshgrid(1:w_roi, 1:h_roi);
-center_x = w_roi/2; center_y = h_roi/2;
-sigma = w_roi / 3.0; 
-spotlight = exp(-((xx - center_x).^2 + (yy - center_y).^2) / (2 * sigma^2));
-img_weighted = uint8(double(img_diff) .* spotlight);
-
-% Clamping
-img_calc = img_weighted;
-img_calc(img_calc > 100) = 100;
-max_val = max(img_calc(:));
-soglia = double(max_val) * 0.30; 
-
-img_final_pupil = img_weighted;
-img_final_pupil(img_final_pupil < soglia) = 0;
-img_final_pupil = imgaussfilt(img_final_pupil, 2); % Blur per lisciare i bordi
-
-% Hough Transform
-% Cerchiamo cerchi luminosi poichè ora la pupilla è bianca
-Rp_range = [8 25]; 
-
-[centers, radii, metric] = imfindcircles(img_final_pupil, Rp_range, ...
-    'ObjectPolarity', 'bright', ... 
-    'Sensitivity', 0.96, ... 
-    'EdgeThreshold', 0.05, ...
-    'Method', 'TwoStage');
-
-if ~isempty(centers)
-    
-    % Calcoliamo la distanza dal centro esatto della ROI.
-    c_roi_center = [w_roi/2, h_roi/2];
-    dists = sqrt(sum((centers - c_roi_center).^2, 2));
-    
-    %Accettiamo solo cerchi vicinissimi al centro (< 20px)
-    valid_mask = dists < 20;
-    
-    if any(valid_mask)
-        % Tra quelli validi, prendiamo quello con il punteggio migliore
-        % Vogliamo massimizzare la metrica e minimizzare la distanza
-        scores = (metric(valid_mask) * 100) - (dists(valid_mask) * 2);
-        
-        [~, best_sub_idx] = max(scores);
-        
-        valid_indices = find(valid_mask);
-        best_idx = valid_indices(best_sub_idx);
-        
-        c_pupil = centers(best_idx, :);
-        r_pupil = radii(best_idx);
-    end
-end
-
-%% STEP 4: SEGMENTAZIONE IRIDE
-% L'iride è tipicamente tra 1.5 e 4.5 volte la pupilla.
-R_iris_min = round(r_pupil * 1.5); 
-R_iris_max = round(r_pupil * 4.5);
-   
-% Preparazione immagine
-img_iris_search = img_roi_denoised; 
-img_iris_search = imgaussfilt(img_iris_search, 2.5);
-
-% Hough Transform
-% Cerchiamo cerchi scuri (iride) su sfondo chiaro (sclera)
-[centers_iris, radii_iris, metric_iris] = imfindcircles(img_iris_search, ...
-[R_iris_min R_iris_max], ...
-'ObjectPolarity', 'dark', ... 
-'Sensitivity', 0.98, ...      
-'EdgeThreshold', 0.02, ...    
-'Method', 'TwoStage');
-    
-found_iris = false;
-    
-    if ~isempty(centers_iris)
-
-        % Filtro: cartiamo cerchi il cui centro è troppo lontano dalla pupilla
-        dists_iris = sqrt(sum((centers_iris - c_pupil).^2, 2));
-        valid_mask = dists_iris < 25; % Tolleranza max 25 pixel
-        
-        if any(valid_mask)
-            % Selezioniamo i candidati validi
-            c_valid = centers_iris(valid_mask, :);
-            r_valid = radii_iris(valid_mask, :);
-            m_valid = metric_iris(valid_mask, :);
-            d_valid = dists_iris(valid_mask, :);
-            
-            % Preferiamo cerchi forti e concentrici 
-            scores = m_valid - (d_valid / 20);
-            
-            [~, best_idx] = max(scores);
-            
-            c_iris = c_valid(best_idx, :);
-            r_iris = r_valid(best_idx);
-            found_iris = true;
-        end
-    end
-    
-%% STEP 5: Visualizzazione finale segmentazione
+%% STEP 4: Visualizzazione segmentazione Hough
 %Calcolo le coordinate globali per disegnare sull'immagine originale
 c_pupil_global = c_pupil + [c_min-1, r_min-1];
 c_iris_global = c_iris + [c_min-1, r_min-1];
@@ -171,17 +68,11 @@ figure('Name', 'Segmentazione completa');
 imshow(img_red); hold on; 
 title('Verde = ROI, Rosso = Pupilla, Ciano = Iride')
 
-% Disegna ROI
 rectangle('Position', [c_min, r_min, box_width, box_height], 'EdgeColor', 'g');
-    
-% Disegna Pupilla (Rosso)
 viscircles(c_pupil_global, r_pupil, 'Color', 'r', 'LineWidth', 1);
-        
-% Disegna Iride (Ciano - Esterno)
 viscircles(c_iris_global, r_iris, 'Color', 'c', 'LineWidth', 2);
         
 % Marker Centri
 plot(c_pupil_global(1), c_pupil_global(2), 'r+', 'MarkerSize', 8);
 plot(c_iris_global(1), c_iris_global(2), 'bx', 'MarkerSize', 8);
         
-     
