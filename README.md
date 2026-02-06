@@ -1,4 +1,4 @@
-# Iris Recognition System (MATLAB) 👁️
+# Iris Recognition System
 
 A complete biometric iris recognition pipeline implemented in MATLAB, based on **Hough transform and Daugman's algorithms**. 
 
