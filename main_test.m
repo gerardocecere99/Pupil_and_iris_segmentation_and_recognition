@@ -3,7 +3,7 @@ clc; clear; close all;
 %% STEP 1: CARICAMENTO IMMAGINE E PRE PROCESSING
 
 % Definizione manuale del file
-image = 'Dataset_test_C1\C1_S2_I7.tiff'; 
+image = 'Dataset_test_C1\C1_S1_I1.tiff'; 
 
 % Lettura immagine
 try
@@ -26,9 +26,10 @@ img_denoised = medfilt2(img_enhanced, [7 7]);
 
 % Visualizzazione grafica
 figure('Name', 'Pre processing');
-subplot(1,3,1); imshow(img_red); title('Canale Rosso Filtrato');
-subplot(1,3,2); imshow(img_smooth); title('Riflessi rimossi');
-subplot(1,3,3); imshow(img_denoised); title('Immagine pre processata');
+subplot(1,4,1); imshow(img_rgb); title('Immagine originale');
+subplot(1,4,2); imshow(img_red); title('Canale Rosso Filtrato');
+subplot(1,4,3); imshow(img_smooth); title('Riflessi rimossi');
+subplot(1,4,4); imshow(img_denoised); title('Immagine pre processata');
 
 
 %% STEP 2: STIMA DEL CENTRO (ROI)
@@ -55,16 +56,21 @@ subplot(1, 1, 1); imshow(img_red); hold on;
 rectangle('Position', [c_min, r_min, box_width, box_height], 'EdgeColor', 'g', 'LineWidth', 2); 
 title('ROI selezionata');
 
-%% STEP 3: Chiamata alle funzioni di segmentazione
-%Segmentazione Hough
-[c_pupil, r_pupil, c_iris, r_iris] = segmentazione_hough(img_roi_denoised);   
-
-%% STEP 4: Visualizzazione segmentazione Hough
-%Calcolo le coordinate globali per disegnare sull'immagine originale
+%% STEP 3: Chiamata alle funzioni di segmentazione e normalizzazione
+% Segmentazione Hough
+[c_pupil, r_pupil, c_iris, r_iris] = segmentazione_hough(img_roi_denoised);
 c_pupil_global = c_pupil + [c_min-1, r_min-1];
 c_iris_global = c_iris + [c_min-1, r_min-1];
-    
-figure('Name', 'Segmentazione completa');
+% Segmentazione Active-Contours
+% [inserire funzione qui]
+% Normalizzazione
+h_out = 64; 
+w_out = 512;  
+[img_norm] = normalizza_iride(img_red, c_pupil_global, r_pupil, c_iris_global, r_iris, h_out, w_out);
+
+
+%% STEP 4: Visualizzazione segmentazione Hough
+figure('Name', 'Segmentazione');
 imshow(img_red); hold on; 
 title('Verde = ROI, Rosso = Pupilla, Ciano = Iride')
 
@@ -75,4 +81,18 @@ viscircles(c_iris_global, r_iris, 'Color', 'c', 'LineWidth', 2);
 % Marker Centri
 plot(c_pupil_global(1), c_pupil_global(2), 'r+', 'MarkerSize', 8);
 plot(c_iris_global(1), c_iris_global(2), 'bx', 'MarkerSize', 8);
+
+%% STEP 5: Visualizzazione normalizzazione iride
+figure('Name', 'Normalizzazione');
+% Segmentazione 
+subplot(2,1,1); imshow(img_red); hold on; title('Segmentazione');
+viscircles(c_pupil_global, r_pupil, 'Color', 'r', 'LineWidth', 1); % Pupilla
+viscircles(c_iris_global, r_iris, 'Color', 'c', 'LineWidth', 1); % Iride
+plot([c_pupil_global(1), c_iris_global(1)+r_iris], [c_pupil_global(2), c_iris_global(2)], 'g', 'LineStyle','--'); % Raggio (theta = 0)
+
+% Iride normalizzata
+subplot(2,1,2); imshow(img_norm); title({'Iride Normalizzata', ''});
+xlabel('Angolo \theta (0 \rightarrow 2\pi)');
+ylabel('Raggio (Pupilla \rightarrow Iride)');
+axis on; 
         

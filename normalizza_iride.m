@@ -1,0 +1,42 @@
+function [img_norm] = normalizza_iride(img_red, c_pupil_global, r_pupil, c_iris_global, r_iris, h_out, w_out)
+
+%% NORMALIZZAZIONE IRIDE: Daugman Rubber Sheet Model.
+
+    if nargin < 6
+        h_out = 64;  % Altezza standard (risoluzione radiale)
+        w_out = 512; % Larghezza standard (risoluzione angolare)
+    end
+
+    % Angolo theta e raggio
+    theta = linspace(0, 2*pi, w_out);
+    radius = linspace(0, 1, h_out);
+    
+    % Coordinate bordo pupilla e iride
+    xp = c_pupil_global(1) + r_pupil * cos(theta);
+    yp = c_pupil_global(2) + r_pupil * sin(theta);
+    xi = c_iris_global(1) +  r_iris * cos(theta);
+    yi = c_iris_global(2) +  r_iris * sin(theta);
+    
+    % Interpolazione
+    % Creiamo matrici per vettorizzare il calcolo
+    xp_mat = repmat(xp, h_out, 1);
+    yp_mat = repmat(yp, h_out, 1);
+    xi_mat = repmat(xi, h_out, 1);
+    yi_mat = repmat(yi, h_out, 1);
+    
+    r_mat = repmat(radius', 1, w_out); % Trasposto perché radius varia sulle righe
+    
+    % Formula di Daugman:
+    x_grid = (1 - r_mat) .* xp_mat + r_mat .* xi_mat;
+    y_grid = (1 - r_mat) .* yp_mat + r_mat .* yi_mat;
+    
+    % Estrazione pixel
+    img_double = double(img_red);
+    [rows, cols] = size(img_red);
+    [X, Y] = meshgrid(1:cols, 1:rows);
+    img_norm = interp2(X, Y, img_double, x_grid, y_grid, 'linear');
+    
+    % Convertiamo in uint8 per visualizzazione
+    img_norm = uint8(img_norm);
+
+end

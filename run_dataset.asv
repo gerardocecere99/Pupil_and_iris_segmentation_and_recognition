@@ -79,33 +79,25 @@ img_roi_denoised = img_denoised(r_min:r_max, c_min:c_max);
             %[cp, rp, ci, ri, ok] = segmentazione_active(img_red, c_min, r_min);
         end
 
-% Conversione coordinate        
-c_pupil_global = c_pupil + [c_min-1, r_min-1];
-c_iris_global = c_iris + [c_min-1, r_min-1];
-
 % Chiamata funzione normalizzazione
-[img_norm] = normalizza_iride(img_red, c_pupil_global, r_pupil, c_iris_global, r_iris, h_out, w_out);
+[img_norm] = normalizza_iride(img_red, c_pupil, r_pupil, c_iris, r_iris, h_out, w_out);
 
 % Salvataggio risultato
-% Immagini Segmentazione + normalizzazione
-% Segmentazione
+%Calcolo le coordinate globali per disegnare sull'immagine originale
+c_pupil = c_pupil + [c_min-1, r_min-1];
+c_iris = c_iris + [c_min-1, r_min-1];
+
+% Immagini segmentate
 f = figure('visible', 'off'); 
 subplot(2,1,1); imshow(img_red); hold on; title(fname, 'Interpreter', 'none');
 rectangle('Position', [c_min, r_min, box_width, box_height], 'EdgeColor', 'g');
-viscircles(c_pupil_global, r_pupil, 'Color', 'r', 'LineWidth', 1);
-viscircles(c_iris_global, r_iris, 'Color', 'c', 'LineWidth', 2);
-plot([c_pupil_global(1), c_iris_global(1)+r_iris], [c_pupil_global(2), c_iris_global(2)], 'g', 'LineStyle','--'); % Raggio (theta = 0)
-plot(c_pupil_global(1), c_pupil_global(2), 'r+', 'MarkerSize', 8);
-plot(c_iris_global(1), c_iris_global(2), 'bx', 'MarkerSize', 8);
-% Normalizzazione
-subplot(2,1,2); imshow(img_norm); title({'Iride Normalizzata', ''});
-xlabel('Angolo \theta (0 \rightarrow 2\pi)');
-ylabel('Raggio (Pupilla \rightarrow Iride)');
-axis on; 
+viscircles(c_pupil, r_pupil, 'Color', 'r', 'LineWidth', 1);
+viscircles(c_iris, r_iris, 'Color', 'c', 'LineWidth', 2);
+plot(c_pupil(1), c_pupil(2), 'r+', 'MarkerSize', 8);
+plot(c_iris(1), c_iris(2), 'bx', 'MarkerSize', 8);
+saveas(f, fullfile(out_dir_img, ['Res_' fname '.jpg']));
 
-saveas(f, fullfile(out_dir_img, ['Report_' fname '.jpg']));
-
-% Immagini normalizzate (per encoding)
+% Immagini normalizzate 
 [~, nameNoExt, ~] = fileparts(fname);
 normFileName = fullfile(out_dir_norm, [nameNoExt '_norm.jpg']);
 imwrite(img_norm, normFileName);
