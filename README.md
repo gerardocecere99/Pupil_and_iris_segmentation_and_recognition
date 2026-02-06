@@ -12,7 +12,7 @@ The system is designed to handle noisy images (reflections, eyelashes, eyelids) 
 
 ## 🗝️ Key Features
 
-* **Robust Preprocessing:** 
+* **Robust Preprocessing** 
 * **Hough Transform Segmentation:** Detects the pupil and iris boundaries using Circular Hough Transform with radius constraints.
 * **Daugman's Rubber Sheet Normalization:** Unwraps the circular iris region into a fixed-size rectangular block ($64 \times 512$) using polar coordinates, ensuring invariance to size and pupil dilation.
 * **Gabor Wavelet Encoding:** Extracts phase information using **2D Gabor Filters** (Real and Imaginary parts) to generate a binary feature template.
